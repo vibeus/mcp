@@ -60,6 +60,10 @@ func (r Request) GetID() *ID {
 	return r.id
 }
 
+func (r Request) IsNotification() bool {
+	return r.id == nil
+}
+
 type ErrorObject struct {
 	Code    int              `json:"code"`
 	Message string           `json:"message"`
@@ -73,8 +77,8 @@ func (o ErrorObject) Error() string {
 
 type responseUnion struct {
 	Version string           `json:"jsonrpc"`
-	Result  *json.RawMessage `json:"result"`
-	Error   *ErrorObject     `json:"error"`
+	Result  *json.RawMessage `json:"result,omitempty"`
+	Error   *ErrorObject     `json:"error,omitempty"`
 	ID      *ID              `json:"id"`
 }
 

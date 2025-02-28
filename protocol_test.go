@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 )
 
 type testServerImpl struct {
@@ -52,4 +53,6 @@ func TestInitialize(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
+
+	<-time.After(100 * time.Millisecond)
 }

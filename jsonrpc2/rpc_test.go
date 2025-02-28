@@ -2,6 +2,8 @@ package jsonrpc2
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -111,7 +113,14 @@ func (h *testHandler) HandleRequest(w ResponseWriter, req Request) error {
 
 func (h *testHandler) HandleNotification(req Request) error {
 	if req.Method != "notifyMethod" {
-		return nil
+		var param string
+		err := json.Unmarshal(*req.Params, &param)
+		if err != nil {
+			return err
+		}
+		if param != "notifyParams" {
+			return fmt.Errorf("Invalid parameter: %s", param)
+		}
 	}
 	return nil
 }

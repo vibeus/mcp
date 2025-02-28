@@ -48,7 +48,7 @@ type ServerCapabilities struct {
 	Logging   *CapLogging   `json:"logging,omitempty"`
 	Prompts   *CapPrompts   `json:"prompts,omitempty"`
 	Resources *CapResources `json:"resources,omitempty"`
-	Tools     *CapTools     `json:"omitempty"`
+	Tools     *CapTools     `json:"tools,omitempty"`
 }
 
 type ServerInfo struct {

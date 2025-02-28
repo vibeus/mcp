@@ -83,7 +83,7 @@ func (c *Client) Ping(ctx context.Context) error {
 
 // Initialize is called by the client to negotiate MCPVersion and Capabilities
 // with the server.
-func (c Client) Initialize(ctx context.Context) error {
+func (c *Client) Initialize(ctx context.Context) error {
 	to_ctx, _ := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
 
 	select {
@@ -116,7 +116,7 @@ func (c Client) Initialize(ctx context.Context) error {
 		s.SetServerCapabilities(&si.Capabilities)
 		s.SetServerInfo(&si.ServerInfo)
 		if logger != nil {
-			logger.Info(kMethodInitialize, "id", id, "clientInitInfo", ci, "serverInitInfo", si)
+			logger.Debug(kMethodInitialize, "id", id, "clientInitInfo", ci, "serverInitInfo", si)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (c Client) Initialize(ctx context.Context) error {
 }
 
 // Initialized is called to notify the server that it has finished negotiating MCPVersion and Capabilities.
-func (c Client) Initialized(ctx context.Context) error {
+func (c *Client) Initialized(ctx context.Context) error {
 	s := c.ctx.GetSession()
 	logger := s.GetLogger()
 	if logger != nil {
@@ -135,9 +135,6 @@ func (c Client) Initialized(ctx context.Context) error {
 		return err
 	}
 
-	if logger != nil {
-		logger.Info(kMethodInitialized)
-	}
 	s.SetMCPState(MCPState_Initialized)
 	return nil
 }

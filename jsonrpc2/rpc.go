@@ -197,7 +197,6 @@ type ResponseWriter interface {
 
 type Handler interface {
 	HandleRequest(ResponseWriter, Request) error
-	HandleNotification(Request) error
 }
 
 func NewServer(pctx context.Context, conn io.ReadWriteCloser, framer Framer, handler Handler) *Server {
@@ -286,11 +285,7 @@ func (s *Server) Serve() error {
 
 			// now we has detected id
 			writer.id = req.ID
-			if req.ID == nil {
-				err = s.handler.HandleNotification(Request{Method: req.Method, Params: req.Params})
-			} else {
-				err = s.handler.HandleRequest(&writer, Request{Method: req.Method, Params: req.Params, id: req.ID})
-			}
+			err = s.handler.HandleRequest(&writer, Request{Method: req.Method, Params: req.Params, id: req.ID})
 			if err != nil {
 				return err
 			}
@@ -303,4 +298,6 @@ var (
 		Code:    JSONRPC2ErrorMethodNotFound,
 		Message: "The method does not exist on the server.",
 	}
+
+	ErrObjInvalidRequest = ErrorObject{Code: JSONRPC2ErrorInvalidRequest, Message: "Invalid request."}
 )
