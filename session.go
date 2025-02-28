@@ -2,11 +2,12 @@ package mcp
 
 import (
 	"context"
+	"io"
 
 	"log/slog"
 
 	"github.com/google/uuid"
-	"go.lsp.dev/jsonrpc2"
+	"github.com/vibeus/mcp/jsonrpc2"
 )
 
 func init() {
@@ -25,14 +26,16 @@ func (c SessionContext) GetSession() Session {
 
 type Session interface {
 	// Init a new session.
-	Init(ctx context.Context, conn jsonrpc2.Conn) SessionContext
+	Init(ctx context.Context, conn io.ReadWriteCloser) SessionContext
 	// Close the session.
 	Close()
 
 	SessionID() string
 
 	// Get the connection.
-	GetConn() jsonrpc2.Conn
+	GetConn() io.ReadWriteCloser
+
+	NextID() jsonrpc2.ID
 
 	// Get/Set the logger.
 	GetLogger() *slog.Logger
@@ -88,7 +91,7 @@ func (s MCPState) String() string {
 // Impl Session
 type session struct {
 	id              string
-	conn            jsonrpc2.Conn
+	conn            io.ReadWriteCloser
 	logger          *slog.Logger
 	protocolVersion string
 	serverInfo      *ServerInfo
@@ -97,9 +100,10 @@ type session struct {
 	clientCaps      *ClientCapabilities
 	cancel          context.CancelFunc
 	mcpState        MCPState
+	requestID       int32
 }
 
-func (s *session) Init(ctx context.Context, conn jsonrpc2.Conn) SessionContext {
+func (s *session) Init(ctx context.Context, conn io.ReadWriteCloser) SessionContext {
 	s.id = uuid.New().String()
 	s.conn = conn
 
@@ -123,8 +127,14 @@ func (s session) SessionID() string {
 	return s.id
 }
 
-func (s session) GetConn() jsonrpc2.Conn {
+func (s session) GetConn() io.ReadWriteCloser {
 	return s.conn
+}
+
+func (s *session) NextID() jsonrpc2.ID {
+	id := jsonrpc2.MakeNumberID(s.requestID)
+	s.requestID++
+	return id
 }
 
 func (s session) GetLogger() *slog.Logger {

@@ -25,7 +25,7 @@ func TestRequestResponse(t *testing.T) {
 	}()
 
 	// Send a request from the client
-	var result result
+	var result string
 
 	err := client.Call(MakeNumberID(1), "testMethod", "testParams", &result)
 	if err != nil {
@@ -33,11 +33,8 @@ func TestRequestResponse(t *testing.T) {
 	}
 
 	// Check the response
-	if result.Error != nil {
-		t.Fatalf("Unexpected error in response: %v", result.Error)
-	}
-	if result.Value != "testResponse" {
-		t.Fatalf("Unexpected response value: %v", result.Value)
+	if result != "testResponse" {
+		t.Fatalf("Unexpected response value: %v", result)
 	}
 }
 
@@ -59,18 +56,15 @@ func TestRequestError(t *testing.T) {
 	}()
 
 	// Send a request from the client that will trigger an error
-	var result result
+	var result any
 	err := client.Call(MakeNumberID(2), "errorMethod", "errorParams", &result)
-	if err != nil {
-		t.Fatalf("Expected nil error")
+	if err == nil {
+		t.Fatalf("Expected error in response, got nil")
 	}
 
 	// Check the error
-	if result.Error == nil {
-		t.Fatalf("Expected error in response, got nil")
-	}
-	if result.Error.Error() != "jsonrpc2 error code -32603: Internal error\n null" {
-		t.Fatalf("Unexpected error message: %v", result.Error)
+	if err.Error() != "jsonrpc2 error code -32603: Internal error\n null" {
+		t.Fatalf("Unexpected error message: %v", err)
 	}
 }
 
@@ -107,11 +101,11 @@ type testHandler struct{}
 func (h *testHandler) HandleRequest(w ResponseWriter, req Request) error {
 	switch req.Method {
 	case "testMethod":
-		return w.WriteResponse(ResponseOk{Result: "testResponse"})
+		return w.WriteResponse("testResponse")
 	case "errorMethod":
-		return w.WriteError(ResponseError{Error: ErrorObject{Code: JSONRPC2ErrorInternalError, Message: "Internal error"}})
+		return w.WriteError(ErrorObject{Code: JSONRPC2ErrorInternalError, Message: "Internal error"})
 	default:
-		return w.WriteError(ResponseError{Error: ErrorObject{Code: JSONRPC2ErrorMethodNotFound, Message: "Method not found"}})
+		return w.WriteError(ErrorObject{Code: JSONRPC2ErrorMethodNotFound, Message: "Method not found"})
 	}
 }
 

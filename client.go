@@ -2,10 +2,11 @@ package mcp
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"time"
 
-	"go.lsp.dev/jsonrpc2"
+	"github.com/vibeus/mcp/jsonrpc2"
 )
 
 var (
@@ -19,12 +20,13 @@ type ClientTimeout struct {
 }
 
 type Client struct {
-	ctx SessionContext
+	ctx       SessionContext
+	rpcClient *jsonrpc2.Client
 
 	timeoutConfig ClientTimeout
 }
 
-func NewClient(conn jsonrpc2.Conn) *Client {
+func NewClient(conn io.ReadWriteCloser) *Client {
 	client := new(Client)
 	client.timeoutConfig = ClientTimeout{
 		PingTimeout: DefaultClientPingTimeout,
@@ -34,25 +36,26 @@ func NewClient(conn jsonrpc2.Conn) *Client {
 	s.clientInfo = &ClientInfo{Name: "unnamed client", Version: "0"}
 	s.conn = conn
 	client.ctx = s.Init(context.Background(), conn)
+	client.rpcClient = jsonrpc2.NewClient(client.ctx, conn, jsonrpc2.NewLineFramer(conn))
 	return client
 }
 
-func (c Client) SetLogger(logger *slog.Logger) {
+func (c *Client) SetLogger(logger *slog.Logger) {
 	s := c.ctx.GetSession()
 	s.SetLogger(logger)
 }
 
-func (c Client) SetMCPVersion(version string) {
+func (c *Client) SetMCPVersion(version string) {
 	s := c.ctx.GetSession()
 	s.SetProtocolVersion(version)
 }
 
-func (c Client) SetCapabilities(cc ClientCapabilities) {
+func (c *Client) SetCapabilities(cc ClientCapabilities) {
 	s := c.ctx.GetSession()
 	s.SetClientCapabilities(&cc)
 }
 
-func (c Client) Ping(ctx context.Context) error {
+func (c *Client) Ping(ctx context.Context) error {
 	to_ctx, _ := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
 	select {
 	case <-to_ctx.Done():
@@ -63,7 +66,8 @@ func (c Client) Ping(ctx context.Context) error {
 		if logger != nil {
 			logger.Debug(kMethodPing)
 		}
-		id, err := s.GetConn().Call(to_ctx, kMethodPing, nil, nil)
+		id := s.NextID()
+		err := c.rpcClient.Call(id, kMethodPing, nil, nil)
 
 		if err != nil {
 			s.SetMCPState(MCPState_End)
@@ -71,7 +75,7 @@ func (c Client) Ping(ctx context.Context) error {
 		}
 
 		if logger != nil {
-			logger.Info(kMethodPing, "id", id)
+			logger.Info(kMethodPing, "id", id.String())
 		}
 	}
 	return nil
@@ -93,11 +97,12 @@ func (c Client) Initialize(ctx context.Context) error {
 		ci.Capabilities = *s.GetClientCapabilities()
 
 		si := new(ServerInitializeInfo)
+		id := s.NextID()
 		logger := s.GetLogger()
 		if logger != nil {
-			logger.Debug("Call", "method", kMethodInitialize, "client", ci)
+			logger.Debug("Call", "method", kMethodInitialize, "id", id.String(), "client", ci)
 		}
-		id, err := s.GetConn().Call(to_ctx, kMethodInitialize, ci, si)
+		err := c.rpcClient.Call(id, kMethodInitialize, ci, &si)
 		if err != nil {
 			s.SetMCPState(MCPState_End)
 			return err
@@ -125,7 +130,7 @@ func (c Client) Initialized(ctx context.Context) error {
 	if logger != nil {
 		logger.Debug("Notify", "method", kMethodInitialized)
 	}
-	err := s.GetConn().Notify(ctx, kMethodInitialized, nil)
+	err := c.rpcClient.Notify(kMethodInitialized, nil)
 	if err != nil {
 		return err
 	}

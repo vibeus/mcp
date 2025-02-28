@@ -27,6 +27,13 @@ func (id *ID) MarshalJSON() ([]byte, error) {
 	return json.Marshal(id.number)
 }
 
+func (id *ID) String() string {
+	if id.name != "" {
+		return id.name
+	}
+	return fmt.Sprintf("%d", id.number)
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (id *ID) UnmarshalJSON(data []byte) error {
 	*id = ID{}
@@ -37,15 +44,15 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 }
 
 type requestUnion struct {
-	Version string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
-	ID      *ID    `json:"id,omitempty"`
+	Version string           `json:"jsonrpc"`
+	Method  string           `json:"method"`
+	Params  *json.RawMessage `json:"params,omitempty"`
+	ID      *ID              `json:"id,omitempty"`
 }
 
 type Request struct {
 	Method string
-	Params any
+	Params *json.RawMessage
 	id     *ID // nil if is notification
 }
 
@@ -54,9 +61,9 @@ func (r Request) GetID() *ID {
 }
 
 type ErrorObject struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    *json.RawMessage `json:"data,omitempty"`
 }
 
 func (o ErrorObject) Error() string {
@@ -65,18 +72,10 @@ func (o ErrorObject) Error() string {
 }
 
 type responseUnion struct {
-	Version string       `json:"jsonrpc"`
-	Result  any          `json:"result"`
-	Error   *ErrorObject `json:"error"`
-	ID      *ID          `json:"id"`
-}
-
-type ResponseOk struct {
-	Result any
-}
-
-type ResponseError struct {
-	Error ErrorObject
+	Version string           `json:"jsonrpc"`
+	Result  *json.RawMessage `json:"result"`
+	Error   *ErrorObject     `json:"error"`
+	ID      *ID              `json:"id"`
 }
 
 const (

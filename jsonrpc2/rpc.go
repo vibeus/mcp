@@ -8,7 +8,7 @@ import (
 )
 
 type result struct {
-	Value any
+	Value *json.RawMessage
 	Error error
 }
 
@@ -107,28 +107,29 @@ func (c *Client) handleResponse(id ID) {
 			return
 		}
 		if res.Error != nil {
-			reserr := &ResponseError{
-				Error: *res.Error,
-			}
-			c.pending[id].response <- result{Value: reserr}
+			c.pending[id].response <- result{Error: res.Error}
 			return
 		}
 		if res.Result != nil {
-			resok := &ResponseOk{
-				Result: res.Result,
-			}
-			c.pending[id].response <- result{Value: resok}
+			c.pending[id].response <- result{Value: res.Result}
 			return
 		}
 		c.pending[id].response <- result{Error: ErrInvalidContent}
 	}
 }
 
-func (c *Client) Call(id ID, method string, params any, output *result) error {
+func (c *Client) Call(id ID, method string, params any, output any) error {
+	var encoded_param json.RawMessage
+	var err error
+	encoded_param, err = json.Marshal(params)
+	if err != nil {
+		return RPCError{err}
+	}
+
 	req := requestUnion{
 		ID:     &id,
 		Method: method,
-		Params: params,
+		Params: &encoded_param,
 	}
 	data, err := json.Marshal(req)
 	if err != nil {
@@ -160,21 +161,21 @@ func (c *Client) Call(id ID, method string, params any, output *result) error {
 		if res.Error != nil {
 			return res.Error
 		}
-
-		switch v := res.Value.(type) {
-		case *ResponseOk:
-			output.Value = v.Result
-		case *ResponseError:
-			output.Error = v.Error
-		}
-		return nil
+		return json.Unmarshal(*res.Value, output)
 	}
 }
 
 func (c *Client) Notify(method string, params any) error {
+	var encoded_param json.RawMessage
+	var err error
+	encoded_param, err = json.Marshal(params)
+
+	if err != nil {
+		return RPCError{err}
+	}
 	req := requestUnion{
 		Method: method,
-		Params: params,
+		Params: &encoded_param,
 	}
 	data, err := json.Marshal(req)
 	if err != nil {
@@ -190,8 +191,8 @@ func (c *Client) Notify(method string, params any) error {
 }
 
 type ResponseWriter interface {
-	WriteResponse(ResponseOk) error
-	WriteError(ResponseError) error
+	WriteResponse(any) error
+	WriteError(ErrorObject) error
 }
 
 type Handler interface {
@@ -222,10 +223,17 @@ type responseWriter struct {
 	output chan []byte
 }
 
-func (w *responseWriter) WriteResponse(res ResponseOk) error {
+func (w *responseWriter) WriteResponse(res any) error {
+	var encoded_res json.RawMessage
+	var err error
+	encoded_res, err = json.Marshal(res)
+	if err != nil {
+		return err
+	}
+
 	r := responseUnion{
 		Version: JSONRPC2Version,
-		Result:  res.Result,
+		Result:  &encoded_res,
 		ID:      w.id,
 	}
 	data, err := json.Marshal(r)
@@ -236,10 +244,10 @@ func (w *responseWriter) WriteResponse(res ResponseOk) error {
 	return nil
 }
 
-func (w *responseWriter) WriteError(res ResponseError) error {
+func (w *responseWriter) WriteError(res ErrorObject) error {
 	r := responseUnion{
 		Version: JSONRPC2Version,
-		Error:   &res.Error,
+		Error:   &res,
 	}
 	data, err := json.Marshal(r)
 	if err != nil {
@@ -269,7 +277,7 @@ func (s *Server) Serve() error {
 			}
 			err := json.Unmarshal(frame, &req)
 			if err != nil {
-				err = writer.WriteError(ResponseError{Error: ErrorObject{Code: JSONRPC2ErrorParseError, Message: "Invalid JSON"}})
+				err = writer.WriteError(ErrorObject{Code: JSONRPC2ErrorParseError, Message: "Invalid JSON"})
 				if err != nil {
 					return err
 				}
@@ -289,3 +297,10 @@ func (s *Server) Serve() error {
 		}
 	}
 }
+
+var (
+	ErrObjMethodNotSupported = ErrorObject{
+		Code:    JSONRPC2ErrorMethodNotFound,
+		Message: "The method does not exist on the server.",
+	}
+)
