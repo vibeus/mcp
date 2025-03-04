@@ -11,6 +11,7 @@ import (
 type Framer interface {
 	ReadFrame() ([]byte, error)
 	WriteFrame([]byte) error
+	Close() error
 }
 
 // LineFramer implements a simple line-based JSON-RPC2 framing. It reads and writes lines of text from the underlying wire.
@@ -67,4 +68,8 @@ func (c LineFramer) WriteFrame(input []byte) error {
 		}
 	}
 	return nil
+}
+
+func (c LineFramer) Close() error {
+	return c.wire.Close()
 }

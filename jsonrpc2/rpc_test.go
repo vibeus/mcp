@@ -16,8 +16,8 @@ func TestRequestResponse(t *testing.T) {
 	defer serverConn.Close()
 
 	// Create client and server
-	client := NewClient(context.Background(), clientConn, NewLineFramer(clientConn))
-	server := NewServer(context.Background(), serverConn, NewLineFramer(serverConn), &testHandler{})
+	client := NewPeer(context.Background(), NewLineFramer(clientConn), nil)
+	server := NewPeer(context.Background(), NewLineFramer(serverConn), &testHandler{})
 
 	// Start the server
 	go func() {
@@ -47,8 +47,8 @@ func TestRequestError(t *testing.T) {
 	defer serverConn.Close()
 
 	// Create client and server
-	client := NewClient(context.Background(), clientConn, NewLineFramer(clientConn))
-	server := NewServer(context.Background(), serverConn, NewLineFramer(serverConn), &testHandler{})
+	client := NewPeer(context.Background(), NewLineFramer(clientConn), nil)
+	server := NewPeer(context.Background(), NewLineFramer(serverConn), &testHandler{})
 
 	// Start the server
 	go func() {
@@ -65,7 +65,7 @@ func TestRequestError(t *testing.T) {
 	}
 
 	// Check the error
-	if err.Error() != "jsonrpc2 error code -32603: Internal error\n null" {
+	if err.Error() != "RPC error: jsonrpc2 error code -32603: Internal error\n null" {
 		t.Fatalf("Unexpected error message: %v", err)
 	}
 }
@@ -77,8 +77,8 @@ func TestNotification(t *testing.T) {
 	defer serverConn.Close()
 
 	// Create client and server
-	client := NewClient(context.Background(), clientConn, NewLineFramer(clientConn))
-	server := NewServer(context.Background(), serverConn, NewLineFramer(serverConn), &testHandler{})
+	client := NewPeer(context.Background(), NewLineFramer(clientConn), nil)
+	server := NewPeer(context.Background(), NewLineFramer(serverConn), &testHandler{})
 
 	// Start the server
 	go func() {

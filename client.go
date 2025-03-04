@@ -20,8 +20,8 @@ type ClientTimeout struct {
 }
 
 type Client struct {
-	ctx       SessionContext
-	rpcClient *jsonrpc2.Client
+	ctx SessionContext
+	rpc *jsonrpc2.Peer
 
 	timeoutConfig ClientTimeout
 }
@@ -36,11 +36,12 @@ func NewClient(conn io.ReadWriteCloser) *Client {
 	s.clientInfo = &ClientInfo{Name: "unnamed client", Version: "0"}
 	s.conn = conn
 	client.ctx = s.Init(context.Background(), conn)
-	client.rpcClient = jsonrpc2.NewClient(client.ctx, conn, jsonrpc2.NewLineFramer(conn))
+	client.rpc = jsonrpc2.NewPeer(client.ctx, jsonrpc2.NewLineFramer(conn), nil)
 	return client
 }
 
 func (c *Client) SetLogger(logger *slog.Logger) {
+	c.rpc.SetLogger(logger)
 	s := c.ctx.GetSession()
 	s.SetLogger(logger)
 }
@@ -56,7 +57,9 @@ func (c *Client) SetCapabilities(cc ClientCapabilities) {
 }
 
 func (c *Client) Ping(ctx context.Context) error {
-	to_ctx, _ := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
+	defer cancel()
+
 	select {
 	case <-to_ctx.Done():
 		return to_ctx.Err()
@@ -67,7 +70,7 @@ func (c *Client) Ping(ctx context.Context) error {
 			logger.Debug(kMethodPing)
 		}
 		id := s.NextID()
-		err := c.rpcClient.Call(id, kMethodPing, nil, nil)
+		err := c.rpc.Call(id, kMethodPing, nil, nil)
 
 		if err != nil {
 			s.SetMCPState(MCPState_End)
@@ -84,7 +87,8 @@ func (c *Client) Ping(ctx context.Context) error {
 // Initialize is called by the client to negotiate MCPVersion and Capabilities
 // with the server.
 func (c *Client) Initialize(ctx context.Context) error {
-	to_ctx, _ := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
 
 	select {
 	case <-to_ctx.Done():
@@ -102,7 +106,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 		if logger != nil {
 			logger.Debug("Call", "method", kMethodInitialize, "id", id.String(), "client", ci)
 		}
-		err := c.rpcClient.Call(id, kMethodInitialize, ci, &si)
+		err := c.rpc.Call(id, kMethodInitialize, ci, &si)
 		if err != nil {
 			s.SetMCPState(MCPState_End)
 			return err
@@ -130,7 +134,7 @@ func (c *Client) Initialized(ctx context.Context) error {
 	if logger != nil {
 		logger.Debug("Notify", "method", kMethodInitialized)
 	}
-	err := c.rpcClient.Notify(kMethodInitialized, nil)
+	err := c.rpc.Notify(kMethodInitialized, nil)
 	if err != nil {
 		return err
 	}

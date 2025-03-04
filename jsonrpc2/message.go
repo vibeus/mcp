@@ -107,4 +107,5 @@ var (
 	ErrInvalidID      = errors.New("invalid ID")
 	ErrInvalidContent = errors.New("invalid content")
 	ErrContextCancel  = errors.New("context canceled")
+	ErrNoHandler      = errors.New("no handler provided")
 )

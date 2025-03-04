@@ -15,7 +15,7 @@ type MCPVersionNegotiator interface {
 
 type Server struct {
 	ctx               SessionContext
-	rpcServer         *jsonrpc2.Server
+	rpc               *jsonrpc2.Peer
 	versionNegotiator MCPVersionNegotiator
 }
 
@@ -24,11 +24,12 @@ func NewServer(conn io.ReadWriteCloser) *Server {
 	s := session{}
 	s.serverInfo = &ServerInfo{Name: "unnamed server", Version: "0"}
 	server.ctx = s.Init(context.Background(), conn)
-	server.rpcServer = jsonrpc2.NewServer(server.ctx, conn, jsonrpc2.NewLineFramer(conn), &serverHandler{server})
+	server.rpc = jsonrpc2.NewPeer(server.ctx, jsonrpc2.NewLineFramer(conn), &serverHandler{server})
 	return server
 }
 
 func (c *Server) SetLogger(logger *slog.Logger) {
+	c.rpc.SetLogger(logger)
 	c.ctx.GetSession().SetLogger(logger)
 }
 
@@ -44,7 +45,7 @@ func (c *Server) SetCapabilities(sc ServerCapabilities) {
 
 func (c *Server) Serve() error {
 	for {
-		err := c.rpcServer.Serve()
+		err := c.rpc.Serve()
 		if err != nil {
 			c.ctx.GetSession().Close()
 			return err
