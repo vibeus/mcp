@@ -7,13 +7,6 @@ import (
 	"sync"
 )
 
-type PendingRequest struct {
-	id         ID
-	ctx        context.Context
-	channel    chan responseData
-	cancelFunc context.CancelFunc
-}
-
 // Peer is a struct that represents a JSON-RPC 2.0 client and server. It
 // provides methods for sending requests and receiving responses.
 type Peer struct {
@@ -27,10 +20,12 @@ type Peer struct {
 	mutex sync.Mutex
 }
 
-// NewPeer creates a new Peer instance with the given endpoint, framer, and
-// handler. It also sets up goroutines to handle incoming requests and
-// responses. If the peer is used as a server, the `handler` must be provided to
-// handle incoming requests and [Peer.Start] must be called to start serving.
+// NewPeer creates a new Peer instance with the given context, framer, and
+// handler.
+//   - If the peer is used as a server, the handler must be provided to handle
+//     incoming requests and [Peer.Start] must be called to start serving.
+//   - If the peer is used as a client, no handler is required and it can be nil.
+//     [Peer.Start] will be called with [Peer.Call] and [Peer.Notify].
 func NewPeer(pctx context.Context, framer Framer, handler Handler) *Peer {
 	ctx, cancelFunc := context.WithCancel(pctx)
 	peer := &Peer{
@@ -114,6 +109,8 @@ func (p *Peer) Notify(method string, params any) error {
 // parameters. The response is returned by calling [Peer.RecvResponse] on the
 // returned [PendingRequest] object.
 //
+// When Call returns without an error, the request is sent to framer.
+//
 // NOTE: The [PendingRequest] object MUST be passed to either
 // [PendingRequest.Cancel] or [PendingRequest.RecvResponse], otherwise the call
 // will hang indefinitely.
@@ -128,7 +125,7 @@ func (p *Peer) Call(method string, params any) (*PendingRequest, error) {
 	}
 
 	p.requestCount++
-	id := MakeNumberID(p.requestCount)
+	id := makeNumberID(p.requestCount)
 
 	req := requestData{
 		Version: JSONRPC2Version,
@@ -155,36 +152,6 @@ func (p *Peer) Call(method string, params any) (*PendingRequest, error) {
 		return nil, RPCError{err}
 	}
 	return &request, nil
-}
-
-// Cancel stops receiving further calls from the given request.
-func (p PendingRequest) Cancel() {
-	p.cancelFunc()
-	// wait for channel to close
-	<-p.channel
-}
-
-// RecvResponse receives a response from the given request. The output parameter
-// is used to store the result of the call.  If Cancel was called on the request
-// before RecvResponse was returned, RecvResponse will return an
-// [ErrContextCancel] wrapped in [RPCError].
-func (p PendingRequest) RecvResponse(output any) error {
-	response, ok := <-p.channel
-	if ok {
-		defer p.cancelFunc()
-		if response.Result != nil {
-			err := json.Unmarshal(*response.Result, output)
-			if err != nil {
-				return RPCError{err}
-			}
-			return nil
-		}
-		if response.Error != nil {
-			return response.Error
-		}
-		return nil
-	}
-	return RPCError{ErrContextCancel}
 }
 
 func (p *Peer) handleFrame(frame []byte) error {
@@ -233,11 +200,11 @@ func (p *Peer) handleFrame(frame []byte) error {
 	}
 	// receive a request from the server
 	if p.handler != nil {
-		writer := responseWriter{
+		writer := ResponseWriter{
 			output: p.frameWriteChan,
 			id:     wireData.ID,
 		}
-		return p.handler.HandleRequest(&writer, Request{Method: wireData.Method, Params: wireData.Params, id: wireData.ID})
+		return p.handler.HandleRequest(writer, Request{Method: wireData.Method, Params: wireData.Params, id: wireData.ID})
 	} else {
 		return ErrNoHandler
 	}

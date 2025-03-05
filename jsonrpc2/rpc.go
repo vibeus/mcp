@@ -14,13 +14,6 @@ var (
 	ErrObjInvalidParams  = ErrorObject{Code: JSONRPC2ErrorInvalidParams, Message: "Invalid parameters."}
 )
 
-// ResponseWriter is an interface for writing responses to a client. It should
-// implement the WriteResponse and WriteError methods
-type ResponseWriter interface {
-	WriteResponse(any) error
-	WriteError(ErrorObject) error
-}
-
 // Handler is an interface for handling JSON-RPC requests. The HandleRequest
 // method should be implemented to handle incoming requests and write responses
 type Handler interface {

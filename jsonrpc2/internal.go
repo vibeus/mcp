@@ -2,7 +2,6 @@ package jsonrpc2
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"log/slog"
 	"sync"
@@ -56,45 +55,4 @@ func (c *endpoint) writeFrame() {
 			}
 		}
 	}
-}
-
-// responseWriter implements ResponseWriter interface
-type responseWriter struct {
-	id     *ID
-	output chan []byte
-}
-
-func (w *responseWriter) WriteResponse(res any) error {
-	var encoded_res json.RawMessage
-	var err error
-	encoded_res, err = json.Marshal(res)
-	if err != nil {
-		return err
-	}
-
-	r := responseData{
-		Version: JSONRPC2Version,
-		Result:  &encoded_res,
-		ID:      w.id,
-	}
-	data, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-	w.output <- data
-	return nil
-}
-
-func (w *responseWriter) WriteError(res ErrorObject) error {
-	r := responseData{
-		Version: JSONRPC2Version,
-		Error:   &res,
-		ID:      w.id,
-	}
-	data, err := json.Marshal(r)
-	if err != nil {
-		return err
-	}
-	w.output <- data
-	return nil
 }
