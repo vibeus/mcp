@@ -19,7 +19,7 @@ func MakeNumberID(n int32) ID {
 	return ID{number: n}
 }
 
-// MarshalJSON implements json.Marshaler.
+// MarshalJSON implements [pkg/encoding/json.Marshaler].
 func (id *ID) MarshalJSON() ([]byte, error) {
 	if id.name != "" {
 		return json.Marshal(id.name)
@@ -34,7 +34,7 @@ func (id *ID) String() string {
 	return fmt.Sprintf("%d", id.number)
 }
 
-// UnmarshalJSON implements json.Unmarshaler.
+// UnmarshalJSON implements [pkg/encoding/json.Unmarshaler].
 func (id *ID) UnmarshalJSON(data []byte) error {
 	*id = ID{}
 	if err := json.Unmarshal(data, &id.number); err == nil {
@@ -43,11 +43,36 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &id.name)
 }
 
-type requestUnion struct {
+type wireUnion struct {
 	Version string           `json:"jsonrpc"`
-	Method  string           `json:"method"`
+	Method  string           `json:"method,omitempty"` // for request
+	Params  *json.RawMessage `json:"params,omitempty"` // for request
+
+	Result *json.RawMessage `json:"result,omitempty"` // for normal response
+	Error  *ErrorObject     `json:"error,omitempty"`  // for error response
+	ID     *ID              `json:"id,omitempty"`     // for request and response
+}
+
+func (d wireUnion) IsResponse() bool {
+	return d.ID != nil && d.Result != nil
+}
+
+func (d wireUnion) IsError() bool {
+	return d.Error != nil
+}
+
+type requestData struct {
+	Version string           `json:"jsonrpc"`
+	Method  string           `json:"method,omitempty"`
 	Params  *json.RawMessage `json:"params,omitempty"`
 	ID      *ID              `json:"id,omitempty"`
+}
+
+type responseData struct {
+	Version string           `json:"jsonrpc"`
+	Result  *json.RawMessage `json:"result,omitempty"` // for normal response
+	Error   *ErrorObject     `json:"error,omitempty"`  // for error response
+	ID      *ID              `json:"id"`               // must be null, can't be omitted
 }
 
 type Request struct {
@@ -75,13 +100,6 @@ func (o ErrorObject) Error() string {
 	return fmt.Sprintf("jsonrpc2 error code %d: %s\n %s", o.Code, o.Message, data)
 }
 
-type responseUnion struct {
-	Version string           `json:"jsonrpc"`
-	Result  *json.RawMessage `json:"result,omitempty"`
-	Error   *ErrorObject     `json:"error,omitempty"`
-	ID      *ID              `json:"id"`
-}
-
 const (
 	JSONRPC2Version             = "2.0"
 	JSONRPC2ErrorParseError     = -32700
@@ -104,8 +122,8 @@ func (e RPCError) Error() string {
 }
 
 var (
-	ErrInvalidID      = errors.New("invalid ID")
-	ErrInvalidContent = errors.New("invalid content")
-	ErrContextCancel  = errors.New("context canceled")
-	ErrNoHandler      = errors.New("no handler provided")
+	ErrInvalidContent = errors.New("jsonrpc2: invalid content")
+	ErrContextCancel  = errors.New("jsonrpc2: context canceled")
+	// When a request is received and the handler cannot be found, this error will be returned.
+	ErrNoHandler = errors.New("jsonrpc2: no handler provided")
 )

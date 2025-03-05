@@ -19,7 +19,7 @@ func (testServerImpl) NegotiateMCPVersion(client string) string {
 func TestInitialize(t *testing.T) {
 	sconn, cconn := net.Pipe()
 
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug}))
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	slogger := logger.WithGroup("server")
 	clogger := logger.WithGroup("client")
 

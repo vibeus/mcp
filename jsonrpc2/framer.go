@@ -28,30 +28,41 @@ func NewLineFramer(w io.ReadWriteCloser) *LineFramer {
 }
 
 func (c *LineFramer) ReadFrame() ([]byte, error) {
-	if c.scanner.Scan() {
-		return []byte(c.scanner.Bytes()), nil
+	for {
+		if c.scanner.Scan() {
+			return c.scanner.Bytes()[:], nil
+		}
+		err := c.scanner.Err()
+		if err == bufio.ErrFinalToken {
+			err = io.EOF
+		} else if err == io.ErrClosedPipe {
+			err = io.EOF
+		}
+		if err != nil {
+			return c.scanner.Bytes()[:], err
+		}
 	}
-	return []byte(c.scanner.Bytes()), c.scanner.Err()
 }
 
-func (c LineFramer) WriteFrame(input []byte) error {
+func (c *LineFramer) WriteFrame(input []byte) error {
 	var buf bytes.Buffer
 	b := input
 
 	// filter invalid utf8 characters
 	for {
 		r, size := utf8.DecodeRune(b)
-		if size == 0 {
+		if size == 0 { // empty string
 			buf.WriteRune('\n')
 			break
+		}
+		if r == utf8.RuneError { // invalid utf8 sequence
+			goto next
 		}
 		if r == '\n' {
 			return ErrInvalidContent
 		}
-		_, err := buf.WriteRune(r)
-		if err != nil {
-			return err
-		}
+		buf.WriteRune(r)
+	next:
 		b = b[size:]
 	}
 
@@ -70,6 +81,6 @@ func (c LineFramer) WriteFrame(input []byte) error {
 	return nil
 }
 
-func (c LineFramer) Close() error {
+func (c *LineFramer) Close() error {
 	return c.wire.Close()
 }

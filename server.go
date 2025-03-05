@@ -44,11 +44,6 @@ func (c *Server) SetCapabilities(sc ServerCapabilities) {
 }
 
 func (c *Server) Serve() error {
-	for {
-		err := c.rpc.Serve()
-		if err != nil {
-			c.ctx.GetSession().Close()
-			return err
-		}
-	}
+	c.rpc.Start()
+	return nil
 }

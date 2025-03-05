@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/vibeus/mcp/jsonrpc2"
 )
 
 func init() {
@@ -34,8 +33,6 @@ type Session interface {
 
 	// Get the connection.
 	GetConn() io.ReadWriteCloser
-
-	NextID() jsonrpc2.ID
 
 	// Get/Set the logger.
 	GetLogger() *slog.Logger
@@ -129,12 +126,6 @@ func (s session) SessionID() string {
 
 func (s session) GetConn() io.ReadWriteCloser {
 	return s.conn
-}
-
-func (s *session) NextID() jsonrpc2.ID {
-	id := jsonrpc2.MakeNumberID(s.requestID)
-	s.requestID++
-	return id
 }
 
 func (s session) GetLogger() *slog.Logger {

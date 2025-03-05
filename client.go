@@ -69,16 +69,14 @@ func (c *Client) Ping(ctx context.Context) error {
 		if logger != nil {
 			logger.Debug(kMethodPing)
 		}
-		id := s.NextID()
-		err := c.rpc.Call(id, kMethodPing, nil, nil)
+		req, err := c.rpc.Call(kMethodPing, nil)
+		if err == nil {
+			err = c.rpc.RecvResponse(*req, nil)
+		}
 
 		if err != nil {
 			s.SetMCPState(MCPState_End)
 			return err
-		}
-
-		if logger != nil {
-			logger.Info(kMethodPing, "id", id.String())
 		}
 	}
 	return nil
@@ -101,12 +99,11 @@ func (c *Client) Initialize(ctx context.Context) error {
 		ci.Capabilities = *s.GetClientCapabilities()
 
 		si := new(ServerInitializeInfo)
-		id := s.NextID()
 		logger := s.GetLogger()
-		if logger != nil {
-			logger.Debug("Call", "method", kMethodInitialize, "id", id.String(), "client", ci)
+		req, err := c.rpc.Call(kMethodInitialize, ci)
+		if err == nil {
+			err = c.rpc.RecvResponse(*req, &si)
 		}
-		err := c.rpc.Call(id, kMethodInitialize, ci, &si)
 		if err != nil {
 			s.SetMCPState(MCPState_End)
 			return err
@@ -119,9 +116,6 @@ func (c *Client) Initialize(ctx context.Context) error {
 		s.SetProtocolVersion(si.ProtocolVersion)
 		s.SetServerCapabilities(&si.Capabilities)
 		s.SetServerInfo(&si.ServerInfo)
-		if logger != nil {
-			logger.Debug(kMethodInitialize, "id", id, "clientInitInfo", ci, "serverInitInfo", si)
-		}
 	}
 
 	return nil

@@ -22,22 +22,20 @@ type endpoint struct {
 
 func (c *endpoint) readFrame() {
 	for {
+		frame, err := c.framer.ReadFrame()
+		if err != nil {
+			if err != io.EOF {
+				if c.logger != nil {
+					c.logger.Debug("error reading frame", "error", err)
+				}
+			}
+			c.cancelFunc()
+			return
+		}
 		select {
 		case <-c.ctx.Done():
 			return
-		default:
-			frame, err := c.framer.ReadFrame()
-			if err != nil && err != io.EOF {
-				if c.logger != nil {
-					c.logger.Error("error reading frame", "error", err)
-				}
-				c.cancelFunc()
-				return
-			}
-			if c.logger != nil {
-				c.logger.Debug(">>", "frame", string(frame))
-			}
-			c.frameReadChan <- frame
+		case c.frameReadChan <- frame:
 		}
 	}
 }
@@ -48,9 +46,6 @@ func (c *endpoint) writeFrame() {
 		case <-c.ctx.Done():
 			return
 		case frame := <-c.frameWriteChan:
-			if c.logger != nil {
-				c.logger.Debug("<<", "frame", string(frame))
-			}
 			err := c.framer.WriteFrame(frame)
 			if err != nil {
 				if c.logger != nil {
@@ -77,7 +72,7 @@ func (w *responseWriter) WriteResponse(res any) error {
 		return err
 	}
 
-	r := responseUnion{
+	r := responseData{
 		Version: JSONRPC2Version,
 		Result:  &encoded_res,
 		ID:      w.id,
@@ -91,9 +86,10 @@ func (w *responseWriter) WriteResponse(res any) error {
 }
 
 func (w *responseWriter) WriteError(res ErrorObject) error {
-	r := responseUnion{
+	r := responseData{
 		Version: JSONRPC2Version,
 		Error:   &res,
+		ID:      w.id,
 	}
 	data, err := json.Marshal(r)
 	if err != nil {
