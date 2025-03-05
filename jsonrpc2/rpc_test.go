@@ -37,7 +37,7 @@ func TestRequestResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Client call error: %v", err)
 	}
-	err = client.RecvResponse(*req, &result)
+	err = req.RecvResponse(&result)
 	if err != nil {
 		t.Fatalf("Client RecvResponse error: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestRequestError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Client call error: %v", err)
 	}
-	err = client.RecvResponse(*req, &result)
+	err = req.RecvResponse(&result)
 	if err == nil {
 		t.Fatalf("Expected error in response, got nil")
 	}
@@ -164,11 +164,11 @@ func TestCancel(t *testing.T) {
 	}
 
 	// Cancel the request before the server can respond
-	client.Cancel(*req)
+	req.Cancel()
 
 	// Attempt to receive the response, expecting cancellation
 	var result string
-	err = client.RecvResponse(*req, &result)
+	err = req.RecvResponse(&result)
 	if err == nil {
 		t.Fatal("Expected error due to cancellation, got nil")
 	}

@@ -71,7 +71,7 @@ func (c *Client) Ping(ctx context.Context) error {
 		}
 		req, err := c.rpc.Call(kMethodPing, nil)
 		if err == nil {
-			err = c.rpc.RecvResponse(*req, nil)
+			err = req.RecvResponse(nil)
 		}
 
 		if err != nil {
@@ -102,7 +102,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 		logger := s.GetLogger()
 		req, err := c.rpc.Call(kMethodInitialize, ci)
 		if err == nil {
-			err = c.rpc.RecvResponse(*req, &si)
+			err = req.RecvResponse(&si)
 		}
 		if err != nil {
 			s.SetMCPState(MCPState_End)

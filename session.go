@@ -97,7 +97,6 @@ type session struct {
 	clientCaps      *ClientCapabilities
 	cancel          context.CancelFunc
 	mcpState        MCPState
-	requestID       int32
 }
 
 func (s *session) Init(ctx context.Context, conn io.ReadWriteCloser) SessionContext {

@@ -114,8 +114,8 @@ func (p *Peer) Notify(method string, params any) error {
 // parameters. The response is returned by calling [Peer.RecvResponse] on the
 // returned [PendingRequest] object.
 //
-// NOTE: The [PendingRequest] object MUST be
-// passed to either [Peer.Cancel] or [Peer.RecvResponse], otherwise the call
+// NOTE: The [PendingRequest] object MUST be passed to either
+// [PendingRequest.Cancel] or [PendingRequest.RecvResponse], otherwise the call
 // will hang indefinitely.
 func (p *Peer) Call(method string, params any) (*PendingRequest, error) {
 	p.Start()
@@ -158,26 +158,20 @@ func (p *Peer) Call(method string, params any) (*PendingRequest, error) {
 }
 
 // Cancel stops receiving further calls from the given request.
-func (p *Peer) Cancel(req PendingRequest) {
-	p.mutex.Lock()
-	req, ok := p.pendingRequests[req.id]
-	p.mutex.Unlock()
-	if !ok {
-		return
-	}
-	req.cancelFunc()
+func (p PendingRequest) Cancel() {
+	p.cancelFunc()
 	// wait for channel to close
-	<-req.channel
+	<-p.channel
 }
 
 // RecvResponse receives a response from the given request. The output parameter
 // is used to store the result of the call.  If Cancel was called on the request
 // before RecvResponse was returned, RecvResponse will return an
 // [ErrContextCancel] wrapped in [RPCError].
-func (p *Peer) RecvResponse(req PendingRequest, output any) error {
-	response, ok := <-req.channel
+func (p PendingRequest) RecvResponse(output any) error {
+	response, ok := <-p.channel
 	if ok {
-		defer req.cancelFunc()
+		defer p.cancelFunc()
 		if response.Result != nil {
 			err := json.Unmarshal(*response.Result, output)
 			if err != nil {
@@ -187,9 +181,6 @@ func (p *Peer) RecvResponse(req PendingRequest, output any) error {
 		}
 		if response.Error != nil {
 			return response.Error
-		}
-		if p.logger != nil {
-			p.logger.Debug("received invlid response", "response", response)
 		}
 		return nil
 	}
