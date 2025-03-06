@@ -20,13 +20,14 @@ type ClientTimeout struct {
 }
 
 type Client struct {
-	ctx SessionContext
-	rpc *jsonrpc2.Peer
+	ctx  SessionContext
+	impl ClientProvider
+	rpc  *jsonrpc2.Peer
 
 	timeoutConfig ClientTimeout
 }
 
-func NewClient(conn io.ReadWriteCloser) *Client {
+func NewClient(conn io.ReadWriteCloser, impl ClientProvider) *Client {
 	client := new(Client)
 	client.timeoutConfig = ClientTimeout{
 		PingTimeout: DefaultClientPingTimeout,
@@ -36,7 +37,8 @@ func NewClient(conn io.ReadWriteCloser) *Client {
 	s.clientInfo = &ClientInfo{Name: "unnamed client", Version: "0"}
 	s.conn = conn
 	client.ctx = s.Init(context.Background(), conn)
-	client.rpc = jsonrpc2.NewPeer(client.ctx, jsonrpc2.NewLineFramer(conn), nil)
+	client.impl = impl
+	client.rpc = jsonrpc2.NewPeer(client.ctx, jsonrpc2.NewLineFramer(conn), impl)
 	return client
 }
 
@@ -133,6 +135,24 @@ func (c *Client) Initialized(ctx context.Context) error {
 		return err
 	}
 
+	c.impl.Start(c)
 	s.SetMCPState(MCPState_Initialized)
 	return nil
+}
+
+func (c *Client) NotifyRootsListChanged(ctx context.Context) error {
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return to_ctx.Err()
+	default:
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Notify", "method", kMethodRootsListChanged)
+		}
+		return c.rpc.Notify(kMethodRootsListChanged, nil)
+	}
 }

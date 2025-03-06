@@ -47,3 +47,16 @@ func (c *Server) Serve() error {
 	c.rpc.Start()
 	return nil
 }
+
+func (c *Server) SamplingCreateMessage(msg SamplingMessage) error {
+	res, err := c.rpc.Call(kMethodSamplingCreateMessage, msg)
+	if err != nil {
+		return err
+	}
+	var response SamplingResponse
+	err = res.RecvResponse(&response)
+	if err != nil {
+		return err
+	}
+	return nil
+}
