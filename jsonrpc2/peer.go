@@ -204,7 +204,7 @@ func (p *Peer) handleFrame(frame []byte) error {
 			output: p.frameWriteChan,
 			id:     wireData.ID,
 		}
-		return p.handler.HandleRequest(writer, Request{Method: wireData.Method, Params: wireData.Params, id: wireData.ID})
+		return p.handler.HandleRequest(&writer, Request{Method: wireData.Method, Params: wireData.Params, id: wireData.ID})
 	} else {
 		return ErrNoHandler
 	}

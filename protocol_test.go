@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,11 @@ func (testServerImpl) NegotiateMCPVersion(client string) string {
 
 type testClientImpl struct {
 	roots_ListChanged chan struct{}
+	roots_started     sync.Once
+}
+
+func (c testClientImpl) Roots_Started() *sync.Once {
+	return &c.roots_started
 }
 
 func (c testClientImpl) Roots_Capability() *CapRoots {
@@ -40,14 +46,9 @@ func (c testClientImpl) Sampling_Capability() *CapSampling {
 	return new(CapSampling)
 }
 
-func (c testClientImpl) Sampling_OnCreateMessage(SamplingMessage) (<-chan SamplingResponse, <-chan jsonrpc2.ErrorObject) {
-	responseChan := make(chan SamplingResponse)
-	errorChan := make(chan jsonrpc2.ErrorObject)
-	go func() {
-		// Simulate a response from the client
-		responseChan <- SamplingResponse{}
-	}()
-	return responseChan, errorChan
+func (c *testClientImpl) HandleRequest(w jsonrpc2.ResponseWriterOf[SamplingResponse], msg SamplingMessage) error {
+	res := SamplingResponse{}
+	return w.WriteResponse(res)
 }
 
 func TestInitialize(t *testing.T) {

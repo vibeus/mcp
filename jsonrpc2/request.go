@@ -88,3 +88,20 @@ func (w *ResponseWriter) WriteError(res ErrorObject) error {
 	w.output <- data
 	return nil
 }
+
+type responseWriterOf[T any] struct {
+	w *ResponseWriter
+}
+
+func (r responseWriterOf[T]) WriteResponse(res T) error {
+	return r.w.WriteResponse(res)
+}
+
+func (r responseWriterOf[T]) WriteError(err ErrorObject) error {
+	return r.w.WriteError(err)
+}
+
+// MakeResponseWriterOf[T] wraps over the ResponseWriter interface and provides a generic implementation of WriteResponseOf[T].
+func MakeResponseWriterOf[T any](w *ResponseWriter) ResponseWriterOf[T] {
+	return responseWriterOf[T]{w}
+}

@@ -1,6 +1,10 @@
 package mcp
 
-import "github.com/vibeus/mcp/jsonrpc2"
+import (
+	"sync"
+
+	"github.com/vibeus/mcp/jsonrpc2"
+)
 
 type Root struct {
 	URI  string `json:"uri"`
@@ -8,6 +12,7 @@ type Root struct {
 }
 
 type CapRootsProvider interface {
+	Roots_Started() *sync.Once
 	Roots_Capability() *CapRoots
 	Roots_OnList() []Root
 	Roots_ListChanged() chan struct{}
@@ -15,5 +20,6 @@ type CapRootsProvider interface {
 
 type CapSamplingProvider interface {
 	Sampling_Capability() *CapSampling
-	Sampling_OnCreateMessage(SamplingMessage) (<-chan SamplingResponse, <-chan jsonrpc2.ErrorObject)
+	// Sampling needs the peer to be a JSON-RPC2 server.
+	jsonrpc2.HandlerOf[SamplingMessage, SamplingResponse]
 }

@@ -9,18 +9,49 @@ import (
 )
 
 type ClientProvider interface {
-	jsonrpc2.Handler
 	Start(*Client)
 	Capabilities() ClientCapabilities
+	Handler() jsonrpc2.Handler
 }
 
 // ClientImpl is the implementation of the [ClientProvider] interface.
 type ClientImpl struct {
 	client *Client
+	// Provider Roots Capability, can be nil if not supported.
 	CapRootsProvider
+	// Provider Sampling Capability, can be nil if not supported.
 	CapSamplingProvider
 
 	once sync.Once
+}
+
+func Start(client *Client, roots CapRootsProvider) {
+	once := roots.Roots_Started()
+	if once == nil {
+		return
+	}
+
+	once.Do(func() {
+		var wg sync.WaitGroup
+		if ch := roots.Roots_ListChanged(); ch != nil {
+			wg.Add(1)
+			go func() {
+				s := client.ctx.GetSession()
+				logger := s.GetLogger()
+				if logger != nil {
+					logger.Info("StartNotifier", "method", kMethodRootsListChanged)
+				}
+				wg.Done()
+				context.AfterFunc(client.ctx, func() {
+					close(ch)
+				})
+				for range ch {
+					client.NotifyRootsListChanged(client.ctx)
+				}
+			}()
+		}
+		wg.Wait()
+	})
 }
 
 func (h *ClientImpl) Capabilities() ClientCapabilities {
@@ -37,31 +68,17 @@ func (h *ClientImpl) Capabilities() ClientCapabilities {
 func (h *ClientImpl) Start(client *Client) {
 	h.client = client
 	h.once.Do(func() {
-		var wg sync.WaitGroup
 		if h.CapRootsProvider != nil {
-			if ch := h.CapRootsProvider.Roots_ListChanged(); ch != nil {
-				wg.Add(1)
-				go func() {
-					s := client.ctx.GetSession()
-					logger := s.GetLogger()
-					if logger != nil {
-						logger.Info("StartNotifier", "method", kMethodRootsListChanged)
-					}
-					wg.Done()
-					context.AfterFunc(client.ctx, func() {
-						close(ch)
-					})
-					for range ch {
-						client.NotifyRootsListChanged(client.ctx)
-					}
-				}()
-			}
+			Start(client, h.CapRootsProvider)
 		}
-		wg.Wait()
 	})
 }
 
-func (h *ClientImpl) HandleRequest(w jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
+func (h *ClientImpl) Handler() jsonrpc2.Handler {
+	return h
+}
+
+func (h *ClientImpl) HandleRequest(w *jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
 	switch req.Method {
 	case kMethodRootsList:
 		if h.CapRootsProvider != nil {
@@ -78,15 +95,7 @@ func (h *ClientImpl) HandleRequest(w jsonrpc2.ResponseWriter, req jsonrpc2.Reque
 			if err != nil {
 				w.WriteError(jsonrpc2.ErrObjInvalidParams)
 			}
-			go func() {
-				resChan, errChan := h.CapSamplingProvider.Sampling_OnCreateMessage(msg)
-				select {
-				case res := <-resChan:
-					w.WriteResponse(res)
-				case err := <-errChan:
-					w.WriteError(err)
-				}
-			}()
+			return h.CapSamplingProvider.HandleRequest(jsonrpc2.MakeResponseWriterOf[SamplingResponse](w), msg)
 		} else {
 			w.WriteError(jsonrpc2.ErrObjMethodNotSupported)
 		}

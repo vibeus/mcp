@@ -14,7 +14,7 @@ func (h *serverHandler) HandleNotification(req jsonrpc2.Request) error {
 	return nil
 }
 
-func (h *serverHandler) HandleRequest(w jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
+func (h *serverHandler) HandleRequest(w *jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
 	s := h.server.ctx.GetSession()
 	switch s.GetMCPState() {
 	case MCPState_Start:
@@ -32,7 +32,7 @@ func (h *serverHandler) HandleRequest(w jsonrpc2.ResponseWriter, req jsonrpc2.Re
 	return nil
 }
 
-func (h *serverHandler) handleStart(w jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
+func (h *serverHandler) handleStart(w *jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
 	s := h.server.ctx.GetSession()
 	logger := s.GetLogger()
 	if logger != nil {
@@ -67,7 +67,7 @@ func (h *serverHandler) handleStart(w jsonrpc2.ResponseWriter, req jsonrpc2.Requ
 	}
 }
 
-func (h *serverHandler) handleInitializing(w jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
+func (h *serverHandler) handleInitializing(w *jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
 	switch req.Method {
 	case kMethodPing:
 		return w.WriteResponse(nil)

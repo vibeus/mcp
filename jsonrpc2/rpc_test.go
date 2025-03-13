@@ -116,7 +116,7 @@ func TestNotification(t *testing.T) {
 // testHandler is a simple handler for testing purposes.
 type testHandler struct{}
 
-func (h *testHandler) HandleRequest(w ResponseWriter, req Request) error {
+func (h *testHandler) HandleRequest(w *ResponseWriter, req Request) error {
 	switch req.Method {
 	case "testMethod":
 		return w.WriteResponse("testResponse")
@@ -193,7 +193,7 @@ func TestCancel(t *testing.T) {
 // slowTestHandler is a handler that sleeps to simulate processing delay.
 type slowTestHandler struct{}
 
-func (h *slowTestHandler) HandleRequest(w ResponseWriter, req Request) error {
+func (h *slowTestHandler) HandleRequest(w *ResponseWriter, req Request) error {
 	if req.Method == "slowMethod" {
 		time.Sleep(500 * time.Millisecond) // Simulate slow processing
 		return w.WriteResponse("response")

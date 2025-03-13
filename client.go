@@ -38,7 +38,7 @@ func NewClient(conn io.ReadWriteCloser, impl ClientProvider) *Client {
 	s.conn = conn
 	client.ctx = s.Init(context.Background(), conn)
 	client.impl = impl
-	client.rpc = jsonrpc2.NewPeer(client.ctx, jsonrpc2.NewLineFramer(conn), impl)
+	client.rpc = jsonrpc2.NewPeer(client.ctx, jsonrpc2.NewLineFramer(conn), impl.Handler())
 	return client
 }
 
