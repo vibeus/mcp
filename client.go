@@ -164,3 +164,238 @@ func (c *ClientState) NotifyRootsListChanged(ctx context.Context) error {
 		return c.rpc.Notify(kMethodRootsListChanged, nil)
 	}
 }
+
+func (c *ClientState) PromptsList(ctx context.Context, cursor string) ([]ListPromptsResponse, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Prompts == nil {
+		return nil, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return nil, to_ctx.Err()
+	default:
+		params := PagedRequest{Cursor: cursor}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodPromptsList, "params", params)
+		}
+		var result []ListPromptsResponse
+		req, err := c.rpc.Call(kMethodPromptsList, params)
+		if err != nil {
+			return nil, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodPromptsList, "result", result)
+		}
+		return result, err
+	}
+}
+
+func (c *ClientState) PromptsGet(ctx context.Context, name string) (PromptGetResponse, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Prompts == nil {
+		return PromptGetResponse{}, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return PromptGetResponse{}, to_ctx.Err()
+	default:
+		params := PromptGetRequest{Name: name}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodPromptsGet, "params", params)
+		}
+		var result PromptGetResponse
+		req, err := c.rpc.Call(kMethodPromptsGet, params)
+		if err != nil {
+			return result, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodPromptsGet, "result", result)
+		}
+		return result, err
+	}
+}
+
+func (c *ClientState) ToolsList(ctx context.Context, cursor string) ([]ListToolsResonponse, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Tools == nil {
+		return nil, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return nil, to_ctx.Err()
+	default:
+		params := PagedRequest{Cursor: cursor}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodToolsList, "params", params)
+		}
+		var result []ListToolsResonponse
+		req, err := c.rpc.Call(kMethodToolsList, params)
+		if err != nil {
+			return nil, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodToolsList, "result", result)
+		}
+		return result, err
+	}
+}
+
+func (c *ClientState) ToolCall(ctx context.Context, name string, args map[string]string) (ToolCallResponse, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Tools == nil {
+		return ToolCallResponse{}, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return ToolCallResponse{}, to_ctx.Err()
+	default:
+		params := ToolCallRequest{
+			Name:      name,
+			Arguments: args,
+		}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodToolsCall, "params", params)
+		}
+		var result ToolCallResponse
+		req, err := c.rpc.Call(kMethodToolsCall, params)
+		if err != nil {
+			return result, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodToolsCall, "result", result)
+		}
+		return result, err
+	}
+}
+
+func (c *ClientState) ResourcesList(ctx context.Context, cursor string) (ResourcesListResponse, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Resources == nil {
+		return ResourcesListResponse{}, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return ResourcesListResponse{}, to_ctx.Err()
+	default:
+		params := PagedRequest{Cursor: cursor}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodResourcesList, "params", params)
+		}
+		var result ResourcesListResponse
+		req, err := c.rpc.Call(kMethodResourcesList, params)
+		if err != nil {
+			return ResourcesListResponse{}, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodResourcesList, "result", result)
+		}
+		return result, err
+	}
+}
+
+func (c *ClientState) ResourcesTemplatesList(ctx context.Context) ([]ResourceTemplateSpec, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Resources == nil {
+		return nil, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return nil, to_ctx.Err()
+	default:
+		params := PagedRequest{}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodResourcesTemplatesList, "params", params)
+		}
+		var result ResourcesTemplatesListResponse
+		req, err := c.rpc.Call(kMethodResourcesTemplatesList, params)
+		if err != nil {
+			return nil, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodResourcesTemplatesList, "result", result)
+		}
+		return result.ResourceTemplates, err
+	}
+}
+
+// ResourcesRead reads the content of a specific resource by URI
+func (c *ClientState) ResourcesRead(ctx context.Context, uri string) ([]ResourceContentUnion, error) {
+	s := c.ctx.GetSession()
+	sc := s.GetServerCapabilities()
+	if sc.Resources == nil {
+		return nil, jsonrpc2.ErrObjMethodNotSupported
+	}
+
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return nil, to_ctx.Err()
+	default:
+		params := ResourcesReadRequest{URI: uri}
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Call", "method", kMethodResourcesRead, "params", params)
+		}
+		var result ResourcesReadResponse
+		req, err := c.rpc.Call(kMethodResourcesRead, params)
+		if err != nil {
+			return nil, err
+		}
+		err = req.RecvResponse(&result)
+		if logger != nil {
+			logger.Debug("CallDone", "method", kMethodResourcesRead, "result", result)
+		}
+		return result.Content, err
+	}
+}

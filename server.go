@@ -86,3 +86,37 @@ func (c *ServerState) NotifyPromptsListChanged(ctx context.Context) error {
 		return c.rpc.Notify(kMethodPromptsListChanged, nil)
 	}
 }
+
+func (c *ServerState) NotifyToolsListChanged(ctx context.Context) error {
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return to_ctx.Err()
+	default:
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Notify", "method", kMethodToolsListChanged)
+		}
+		return c.rpc.Notify(kMethodToolsListChanged, nil)
+	}
+}
+
+func (c *ServerState) NotifyResourcesListChanged(ctx context.Context) error {
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return to_ctx.Err()
+	default:
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Notify", "method", kMethodResourcesListChanged)
+		}
+		return c.rpc.Notify(kMethodResourcesListChanged, nil)
+	}
+}

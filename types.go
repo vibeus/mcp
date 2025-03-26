@@ -1,16 +1,35 @@
 package mcp
 
+import "github.com/vibeus/mcp/jsonrpc2"
+
 var (
-	kMethodPing                  = "ping"
-	kMethodInitialize            = "initialize"
-	kMethodInitialized           = "initialized"
-	kMethodRootsList             = "roots/list"
-	kMethodRootsListChanged      = "notifications/roots/list_changed"
-	kMethodSamplingCreateMessage = "sampling/createMessage"
-	kMethodPromptsList           = "prompts/list"
-	kMethodPromptsGet            = "prompts/get"
-	kMethodPromptsListChanged    = "notifications/prompts/list_changed"
-	LatestMCPVersion             = "2024-11-05"
+	kMethodPing                   = "ping"
+	kMethodInitialize             = "initialize"
+	kMethodInitialized            = "initialized"
+	kMethodRootsList              = "roots/list"
+	kMethodRootsListChanged       = "notifications/roots/list_changed"
+	kMethodSamplingCreateMessage  = "sampling/createMessage"
+	kMethodPromptsList            = "prompts/list"
+	kMethodPromptsGet             = "prompts/get"
+	kMethodPromptsListChanged     = "notifications/prompts/list_changed"
+	kMethodResourcesList          = "resources/list"
+	kMethodResourcesRead          = "resources/read"
+	kMethodResourcesTemplatesList = "resources/templates/list"
+	kMethodResourcesListChanged   = "notifications/resources/list_changed"
+	kMethodToolsList              = "tools/list"
+	kMethodToolsCall              = "tools/call"
+	kMethodToolsListChanged       = "notifications/tools/list_changed"
+
+	LatestMCPVersion = "2025-03-26"
+)
+var (
+	JSONRPC2ResourceNotFound = -32002
+)
+var (
+	kErrObjResourceNotFound = jsonrpc2.ErrorObject{
+		Code:    JSONRPC2ResourceNotFound,
+		Message: "Resource not found",
+	}
 )
 
 type CapRoots struct {
@@ -26,7 +45,9 @@ type CapPrompts struct {
 }
 
 type CapResources struct {
-	Subscribe   bool `json:"subscribe"`
+	// whether the client can subscribe to be notified of changes to individual resources
+	Subscribe bool `json:"subscribe"`
+	// whether the server will emit notifications when the list of available resources changes
 	ListChanged bool `json:"listChanged"`
 }
 
