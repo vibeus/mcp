@@ -13,10 +13,27 @@ import (
 )
 
 type testServerImpl struct {
+	prompts_ListChanged chan struct{}
+	prompts_started     sync.Once
 }
 
-func (testServerImpl) NegotiateMCPVersion(client string) string {
+func NewTestServerImpl() *testServerImpl {
+	return &testServerImpl{}
+}
+
+func (*testServerImpl) NegotiateMCPVersion(client string) string {
 	return LatestMCPVersion
+}
+func (c *testServerImpl) Prompts_Started() *sync.Once {
+	return &c.prompts_started
+}
+func (c *testServerImpl) Prompts_Capability() *CapPrompts {
+	return &CapPrompts{ListChanged: c.prompts_ListChanged != nil}
+}
+func (c *testServerImpl) Prompts_OnList() []PagedPrompts     { return []PagedPrompts{} }
+func (c *testServerImpl) Prompts_ListChanged() chan struct{} { return c.prompts_ListChanged }
+func (c *testServerImpl) Prompts_OnGet(name string) (PromptGetResponse, *jsonrpc2.ErrorObject) {
+	return PromptGetResponse{}, nil
 }
 
 type testClientImpl struct {
@@ -24,25 +41,25 @@ type testClientImpl struct {
 	roots_started     sync.Once
 }
 
-func (c testClientImpl) Roots_Started() *sync.Once {
+func (c *testClientImpl) Roots_Started() *sync.Once {
 	return &c.roots_started
 }
 
-func (c testClientImpl) Roots_Capability() *CapRoots {
+func (c *testClientImpl) Roots_Capability() *CapRoots {
 	return &CapRoots{ListChanged: c.roots_ListChanged != nil}
 }
 
-func (c testClientImpl) Roots_OnList() []Root {
+func (c *testClientImpl) Roots_OnList() []Root {
 	return []Root{
 		{URI: "file://myfile", Name: "Example Root"},
 	}
 }
 
-func (c testClientImpl) Roots_ListChanged() chan struct{} {
+func (c *testClientImpl) Roots_ListChanged() chan struct{} {
 	return c.roots_ListChanged
 }
 
-func (c testClientImpl) Sampling_Capability() *CapSampling {
+func (c *testClientImpl) Sampling_Capability() *CapSampling {
 	return new(CapSampling)
 }
 
@@ -58,16 +75,18 @@ func TestInitialize(t *testing.T) {
 	slogger := logger.WithGroup("server")
 	clogger := logger.WithGroup("client")
 
+	serverProvider := &testServerImpl{prompts_ListChanged: make(chan struct{})}
 	server := NewServer(sconn)
-	server.versionNegotiator = testServerImpl{}
+	serverInstance := &ServerImpl{MCPVersionNegotiator: serverProvider, CapPromptsProvider: serverProvider}
+	server.Setup(serverInstance)
 	server.SetLogger(slogger) // Set the logger for the server
 	server.SetMCPVersion(LatestMCPVersion)
-	server.SetCapabilities(ServerCapabilities{})
+	server.SetCapabilities(serverInstance.Capabilities())
 
 	clientProvider := &testClientImpl{roots_ListChanged: make(chan struct{})}
 	client := NewClient(cconn)
 	clientInstance := &ClientImpl{CapRootsProvider: clientProvider, CapSamplingProvider: clientProvider}
-	client.Start(clientInstance)
+	client.Setup(clientInstance)
 	client.SetLogger(clogger) // Set the logger for the client
 	client.SetMCPVersion(LatestMCPVersion)
 	client.SetCapabilities(clientInstance.Capabilities())
@@ -75,7 +94,6 @@ func TestInitialize(t *testing.T) {
 	go func() {
 		server.Serve()
 	}()
-
 	var err error
 	/*
 		err = client.Ping(context.Background())

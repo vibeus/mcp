@@ -7,6 +7,9 @@ var (
 	kMethodRootsList             = "roots/list"
 	kMethodRootsListChanged      = "notifications/roots/list_changed"
 	kMethodSamplingCreateMessage = "sampling/createMessage"
+	kMethodPromptsList           = "prompts/list"
+	kMethodPromptsGet            = "prompts/get"
+	kMethodPromptsListChanged    = "notifications/prompts/list_changed"
 	LatestMCPVersion             = "2024-11-05"
 )
 

@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"context"
 	"encoding/json"
 	"sync"
 
@@ -9,9 +8,10 @@ import (
 )
 
 type ClientProvider interface {
-	Start(*ClientState)
+	jsonrpc2.Handler
+	BindState(*ClientState)
+	StartClientProvider()
 	Capabilities() ClientCapabilities
-	Handler() jsonrpc2.Handler
 }
 
 // ClientImpl is the implementation of the [ClientProvider] interface.
@@ -25,77 +25,50 @@ type ClientImpl struct {
 	once sync.Once
 }
 
-func startCapRoots(client *ClientState, roots CapRootsProvider) {
-	once := roots.Roots_Started()
-	if once == nil {
-		return
-	}
-
-	once.Do(func() {
-		var wg sync.WaitGroup
-		if ch := roots.Roots_ListChanged(); ch != nil {
-			wg.Add(1)
-			go func() {
-				s := client.ctx.GetSession()
-				logger := s.GetLogger()
-				if logger != nil {
-					logger.Info("StartNotifier", "method", kMethodRootsListChanged)
-				}
-				wg.Done()
-				context.AfterFunc(client.ctx, func() {
-					close(ch)
-				})
-				for range ch {
-					client.NotifyRootsListChanged(client.ctx)
-				}
-			}()
-		}
-		wg.Wait()
-	})
-}
-
-func (h *ClientImpl) Capabilities() ClientCapabilities {
+func (c *ClientImpl) Capabilities() ClientCapabilities {
 	var caps ClientCapabilities
-	if h.CapRootsProvider != nil {
-		caps.Roots = h.CapRootsProvider.Roots_Capability()
+	if c.CapRootsProvider != nil {
+		caps.Roots = c.CapRootsProvider.Roots_Capability()
 	}
-	if h.CapSamplingProvider != nil {
-		caps.Sampling = h.CapSamplingProvider.Sampling_Capability()
+	if c.CapSamplingProvider != nil {
+		caps.Sampling = c.CapSamplingProvider.Sampling_Capability()
 	}
 	return caps
 }
 
-func (h *ClientImpl) Start(client *ClientState) {
-	h.client = client
-	h.once.Do(func() {
-		if h.CapRootsProvider != nil {
-			startCapRoots(client, h.CapRootsProvider)
+func (c *ClientImpl) BindState(client *ClientState) {
+	c.client = client
+}
+
+func (c *ClientImpl) StartClientProvider() {
+	if c.client == nil {
+		panic("must call BindState before StartClientProvider")
+	}
+	c.once.Do(func() {
+		if c.CapRootsProvider != nil {
+			startCapRoots(c.client, c.CapRootsProvider)
 		}
 	})
 }
 
-func (h *ClientImpl) Handler() jsonrpc2.Handler {
-	return h
-}
-
-func (h *ClientImpl) HandleRequest(w *jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
+func (c *ClientImpl) HandleRequest(w *jsonrpc2.ResponseWriter, req jsonrpc2.Request) error {
 	switch req.Method {
 	case kMethodRootsList:
-		if h.CapRootsProvider != nil {
-			roots := h.CapRootsProvider.Roots_ListChanged()
+		if c.CapRootsProvider != nil {
+			roots := c.CapRootsProvider.Roots_ListChanged()
 			w.WriteResponse(roots)
 		} else {
 			w.WriteError(jsonrpc2.ErrObjMethodNotSupported)
 		}
 		return nil
 	case kMethodSamplingCreateMessage:
-		if h.CapSamplingProvider != nil {
+		if c.CapSamplingProvider != nil {
 			var msg SamplingMessage
 			err := json.Unmarshal(*req.Params, &msg)
 			if err != nil {
 				w.WriteError(jsonrpc2.ErrObjInvalidParams)
 			}
-			return h.CapSamplingProvider.HandleRequest(jsonrpc2.MakeResponseWriterOf[SamplingResponse](w), msg)
+			return c.CapSamplingProvider.HandleRequest(jsonrpc2.MakeResponseWriterOf[SamplingResponse](w), msg)
 		} else {
 			w.WriteError(jsonrpc2.ErrObjMethodNotSupported)
 		}

@@ -44,9 +44,9 @@ func NewClient(conn io.ReadWriteCloser) *ClientState {
 	return client
 }
 
-func (c *ClientState) Start(impl ClientProvider) {
+func (c *ClientState) Setup(impl ClientProvider) {
 	c.impl = impl
-	c.rpc = jsonrpc2.NewPeer(c.ctx, jsonrpc2.NewLineFramer(c.ctx.GetSession().GetConn()), impl.Handler())
+	c.rpc = jsonrpc2.NewPeer(c.ctx, jsonrpc2.NewLineFramer(c.ctx.GetSession().GetConn()), impl)
 }
 
 func (c *ClientState) SetLogger(logger *slog.Logger) {
@@ -142,7 +142,8 @@ func (c *ClientState) Initialized(ctx context.Context) error {
 		return err
 	}
 
-	c.impl.Start(c)
+	c.impl.BindState(c)
+	c.impl.StartClientProvider()
 	s.SetMCPState(MCPState_Initialized)
 	return nil
 }

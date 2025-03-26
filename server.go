@@ -4,27 +4,43 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/vibeus/mcp/jsonrpc2"
 )
 
-type MCPVersionNegotiator interface {
-	// given a client version string, return the server's version string.
-	NegotiateMCPVersion(clientVersion string) string
+var (
+	DefaultServerPingTimeout time.Duration = 5 * time.Second
+	DefaultServerRPCTimeout  time.Duration = 10 * time.Second
+)
+
+type ServerTimeout struct {
+	PingTimeout time.Duration
+	RPCTimeout  time.Duration
 }
 
+var (
+	DefaultServerTimeout = ServerTimeout{
+		DefaultServerPingTimeout,
+		DefaultServerRPCTimeout,
+	}
+)
+
 type ServerState struct {
-	ctx               SessionContext
-	rpc               *jsonrpc2.Peer
-	versionNegotiator MCPVersionNegotiator
+	ctx  SessionContext
+	impl ServerProvider
+	rpc  *jsonrpc2.Peer
+
+	timeoutConfig ServerTimeout
 }
 
 func NewServer(conn io.ReadWriteCloser) *ServerState {
 	server := new(ServerState)
+	server.timeoutConfig = DefaultServerTimeout
+
 	s := session{}
 	s.serverInfo = &ServerInfo{Name: "unnamed server", Version: "0"}
 	server.ctx = s.Init(context.Background(), conn)
-	server.rpc = jsonrpc2.NewPeer(server.ctx, jsonrpc2.NewLineFramer(conn), &serverHandler{server})
 	return server
 }
 
@@ -43,20 +59,30 @@ func (c *ServerState) SetCapabilities(sc ServerCapabilities) {
 	s.SetServerCapabilities(&sc)
 }
 
+func (c *ServerState) Setup(impl ServerProvider) {
+	c.impl = impl
+	c.rpc = jsonrpc2.NewPeer(c.ctx, jsonrpc2.NewLineFramer(c.ctx.GetSession().GetConn()), impl)
+}
+
 func (c *ServerState) Serve() error {
+	c.impl.BindState(c)
 	c.rpc.Start()
 	return nil
 }
 
-func (c *ServerState) SamplingCreateMessage(msg SamplingMessage) error {
-	res, err := c.rpc.Call(kMethodSamplingCreateMessage, msg)
-	if err != nil {
-		return err
+func (c *ServerState) NotifyPromptsListChanged(ctx context.Context) error {
+	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
+	defer cancel()
+
+	select {
+	case <-to_ctx.Done():
+		return to_ctx.Err()
+	default:
+		s := c.ctx.GetSession()
+		logger := s.GetLogger()
+		if logger != nil {
+			logger.Debug("Notify", "method", kMethodPromptsListChanged)
+		}
+		return c.rpc.Notify(kMethodPromptsListChanged, nil)
 	}
-	var response SamplingResponse
-	err = res.RecvResponse(&response)
-	if err != nil {
-		return err
-	}
-	return nil
 }
