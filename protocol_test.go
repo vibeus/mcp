@@ -65,8 +65,9 @@ func TestInitialize(t *testing.T) {
 	server.SetCapabilities(ServerCapabilities{})
 
 	clientProvider := &testClientImpl{roots_ListChanged: make(chan struct{})}
+	client := NewClient(cconn)
 	clientInstance := &ClientImpl{CapRootsProvider: clientProvider, CapSamplingProvider: clientProvider}
-	client := NewClient(cconn, clientInstance)
+	client.Start(clientInstance)
 	client.SetLogger(clogger) // Set the logger for the client
 	client.SetMCPVersion(LatestMCPVersion)
 	client.SetCapabilities(clientInstance.Capabilities())

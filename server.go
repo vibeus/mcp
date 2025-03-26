@@ -13,14 +13,14 @@ type MCPVersionNegotiator interface {
 	NegotiateMCPVersion(clientVersion string) string
 }
 
-type Server struct {
+type ServerState struct {
 	ctx               SessionContext
 	rpc               *jsonrpc2.Peer
 	versionNegotiator MCPVersionNegotiator
 }
 
-func NewServer(conn io.ReadWriteCloser) *Server {
-	server := new(Server)
+func NewServer(conn io.ReadWriteCloser) *ServerState {
+	server := new(ServerState)
 	s := session{}
 	s.serverInfo = &ServerInfo{Name: "unnamed server", Version: "0"}
 	server.ctx = s.Init(context.Background(), conn)
@@ -28,27 +28,27 @@ func NewServer(conn io.ReadWriteCloser) *Server {
 	return server
 }
 
-func (c *Server) SetLogger(logger *slog.Logger) {
+func (c *ServerState) SetLogger(logger *slog.Logger) {
 	c.rpc.SetLogger(logger)
 	c.ctx.GetSession().SetLogger(logger)
 }
 
-func (c *Server) SetMCPVersion(version string) {
+func (c *ServerState) SetMCPVersion(version string) {
 	s := c.ctx.GetSession()
 	s.SetProtocolVersion(version)
 }
 
-func (c *Server) SetCapabilities(sc ServerCapabilities) {
+func (c *ServerState) SetCapabilities(sc ServerCapabilities) {
 	s := c.ctx.GetSession()
 	s.SetServerCapabilities(&sc)
 }
 
-func (c *Server) Serve() error {
+func (c *ServerState) Serve() error {
 	c.rpc.Start()
 	return nil
 }
 
-func (c *Server) SamplingCreateMessage(msg SamplingMessage) error {
+func (c *ServerState) SamplingCreateMessage(msg SamplingMessage) error {
 	res, err := c.rpc.Call(kMethodSamplingCreateMessage, msg)
 	if err != nil {
 		return err

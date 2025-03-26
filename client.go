@@ -19,7 +19,14 @@ type ClientTimeout struct {
 	RPCTimeout  time.Duration
 }
 
-type Client struct {
+var (
+	DefaultClientTimeout = ClientTimeout{
+		DefaultClientPingTimeout,
+		DefaultClientRPCTimeout,
+	}
+)
+
+type ClientState struct {
 	ctx  SessionContext
 	impl ClientProvider
 	rpc  *jsonrpc2.Peer
@@ -27,38 +34,38 @@ type Client struct {
 	timeoutConfig ClientTimeout
 }
 
-func NewClient(conn io.ReadWriteCloser, impl ClientProvider) *Client {
-	client := new(Client)
-	client.timeoutConfig = ClientTimeout{
-		PingTimeout: DefaultClientPingTimeout,
-		RPCTimeout:  DefaultClientRPCTimeout,
-	}
+func NewClient(conn io.ReadWriteCloser) *ClientState {
+	client := new(ClientState)
+	client.timeoutConfig = DefaultClientTimeout
 	s := new(session)
 	s.clientInfo = &ClientInfo{Name: "unnamed client", Version: "0"}
 	s.conn = conn
 	client.ctx = s.Init(context.Background(), conn)
-	client.impl = impl
-	client.rpc = jsonrpc2.NewPeer(client.ctx, jsonrpc2.NewLineFramer(conn), impl.Handler())
 	return client
 }
 
-func (c *Client) SetLogger(logger *slog.Logger) {
+func (c *ClientState) Start(impl ClientProvider) {
+	c.impl = impl
+	c.rpc = jsonrpc2.NewPeer(c.ctx, jsonrpc2.NewLineFramer(c.ctx.GetSession().GetConn()), impl.Handler())
+}
+
+func (c *ClientState) SetLogger(logger *slog.Logger) {
 	c.rpc.SetLogger(logger)
 	s := c.ctx.GetSession()
 	s.SetLogger(logger)
 }
 
-func (c *Client) SetMCPVersion(version string) {
+func (c *ClientState) SetMCPVersion(version string) {
 	s := c.ctx.GetSession()
 	s.SetProtocolVersion(version)
 }
 
-func (c *Client) SetCapabilities(cc ClientCapabilities) {
+func (c *ClientState) SetCapabilities(cc ClientCapabilities) {
 	s := c.ctx.GetSession()
 	s.SetClientCapabilities(&cc)
 }
 
-func (c *Client) Ping(ctx context.Context) error {
+func (c *ClientState) Ping(ctx context.Context) error {
 	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
 	defer cancel()
 
@@ -86,7 +93,7 @@ func (c *Client) Ping(ctx context.Context) error {
 
 // Initialize is called by the client to negotiate MCPVersion and Capabilities
 // with the server.
-func (c *Client) Initialize(ctx context.Context) error {
+func (c *ClientState) Initialize(ctx context.Context) error {
 	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.RPCTimeout)
 	defer cancel()
 
@@ -124,7 +131,7 @@ func (c *Client) Initialize(ctx context.Context) error {
 }
 
 // Initialized is called to notify the server that it has finished negotiating MCPVersion and Capabilities.
-func (c *Client) Initialized(ctx context.Context) error {
+func (c *ClientState) Initialized(ctx context.Context) error {
 	s := c.ctx.GetSession()
 	logger := s.GetLogger()
 	if logger != nil {
@@ -140,7 +147,7 @@ func (c *Client) Initialized(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) NotifyRootsListChanged(ctx context.Context) error {
+func (c *ClientState) NotifyRootsListChanged(ctx context.Context) error {
 	to_ctx, cancel := context.WithTimeout(ctx, c.timeoutConfig.PingTimeout)
 	defer cancel()
 

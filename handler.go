@@ -7,7 +7,7 @@ import (
 )
 
 type serverHandler struct {
-	server *Server
+	server *ServerState
 }
 
 func (h *serverHandler) HandleNotification(req jsonrpc2.Request) error {

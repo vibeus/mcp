@@ -9,14 +9,14 @@ import (
 )
 
 type ClientProvider interface {
-	Start(*Client)
+	Start(*ClientState)
 	Capabilities() ClientCapabilities
 	Handler() jsonrpc2.Handler
 }
 
 // ClientImpl is the implementation of the [ClientProvider] interface.
 type ClientImpl struct {
-	client *Client
+	client *ClientState
 	// Provider Roots Capability, can be nil if not supported.
 	CapRootsProvider
 	// Provider Sampling Capability, can be nil if not supported.
@@ -25,7 +25,7 @@ type ClientImpl struct {
 	once sync.Once
 }
 
-func Start(client *Client, roots CapRootsProvider) {
+func startCapRoots(client *ClientState, roots CapRootsProvider) {
 	once := roots.Roots_Started()
 	if once == nil {
 		return
@@ -65,11 +65,11 @@ func (h *ClientImpl) Capabilities() ClientCapabilities {
 	return caps
 }
 
-func (h *ClientImpl) Start(client *Client) {
+func (h *ClientImpl) Start(client *ClientState) {
 	h.client = client
 	h.once.Do(func() {
 		if h.CapRootsProvider != nil {
-			Start(client, h.CapRootsProvider)
+			startCapRoots(client, h.CapRootsProvider)
 		}
 	})
 }
